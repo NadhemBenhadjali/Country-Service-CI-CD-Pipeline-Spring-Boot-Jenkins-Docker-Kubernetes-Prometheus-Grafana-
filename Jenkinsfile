@@ -44,6 +44,12 @@ pipeline {
                 }
             }
         }
+        stage('Deploy Monitoring (Prometheus & Grafana)') {
+            steps {
+                sh 'ansible-playbook -i localhost, monitoring/monitoring-playbook.yml'
+        }
+}
+
     }
 
     post {
@@ -58,4 +64,5 @@ pipeline {
         }
     }
 }
+
 
