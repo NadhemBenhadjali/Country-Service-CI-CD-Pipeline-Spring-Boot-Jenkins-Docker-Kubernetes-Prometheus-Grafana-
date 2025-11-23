@@ -1,7 +1,6 @@
-FROM openjdk:21-jdk        # <- CHANGE THIS LINE
+FROM openjdk:21-jdk
 WORKDIR /app
 
-# copy the executable Spring Boot WAR
 COPY target/*.war app.war
 
 EXPOSE 8087
