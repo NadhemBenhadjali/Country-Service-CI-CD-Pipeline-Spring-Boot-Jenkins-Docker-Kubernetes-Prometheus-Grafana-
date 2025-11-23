@@ -16,4 +16,5 @@ spec:
         - name: my-country-service-container
           image: nadhem9/my-country-service
           ports:
-            - containerPort: 8082
+            - containerPort: 8087
+
