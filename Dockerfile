@@ -1,4 +1,4 @@
-FROM openjdk:21-jdk-oraclelinux
+FROM openjdk:21-jdk        # <- CHANGE THIS LINE
 WORKDIR /app
 
 # copy the executable Spring Boot WAR
