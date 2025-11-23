@@ -7,7 +7,7 @@ pipeline {
     }
 
     environment {
-        SONAR_TOKEN = credentials('sonarqubePWD') // ID du token ajouté dans Jenkins
+        SONAR_TOKEN = credentials('SONAR_TOKEN') // ID du token ajouté dans Jenkins
     }
 
     stages {
@@ -58,3 +58,4 @@ pipeline {
         }
     }
 }
+
