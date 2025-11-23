@@ -7,7 +7,8 @@ spec:
   selector:
     app: country-service
   ports:
-    - port: 8082
-      targetPort: 8082
+    - port: 8087
+      targetPort: 8087
       nodePort: 30007
       protocol: TCP
+
