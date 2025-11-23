@@ -3,25 +3,44 @@ pipeline {
 
     tools {
         maven 'mymaven'
-        jdk 'JDK21'        // Must match the name in "Global Tool Configuration"
-
+        jdk 'JDK21'
     }
+
+    environment {
+        SONAR_TOKEN = credentials('sonarqubePWD') // ID du token ajouté dans Jenkins
+    }
+
     stages {
         stage('Checkout code') {
             steps {
                 git branch: 'main', url: 'https://github.com/NadhemBenhadjali/Pipeline-CI'
             }
         }
-        stage('Build maven') {
+
+        stage('Build & Tests (Maven)') {
             steps {
-                sh 'mvn clean install'
+                sh 'mvn clean verify'
             }
         }
+
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('MySonar') {   // nom du serveur dans Jenkins
+                    sh """
+                        mvn sonar:sonar \
+                          -Dsonar.projectKey=country-service \
+                          -Dsonar.projectName=country-service \
+                          -Dsonar.host.url=${SONAR_HOST_URL} \
+                          -Dsonar.login=${SONAR_TOKEN}
+                    """
+                }
+            }
+        }
+
         stage('Deploy using Ansible playbook') {
             steps {
                 script {
-                    // Exécuter le playbook Ansible
-                    sh 'ansible-playbook -i hosts playbookCICD.yml'
+                    sh 'ansible-playbook -i localhost, playbookCICD.yml'
                 }
             }
         }
@@ -29,7 +48,7 @@ pipeline {
 
     post {
         always {
-            cleanWs()  // Nettoyer l'espace de travail après l'exécution
+            cleanWs()
         }
         success {
             echo 'Pipeline exécuté avec succès !'
@@ -39,10 +58,3 @@ pipeline {
         }
     }
 }
-
-
-
-
-
-
-
