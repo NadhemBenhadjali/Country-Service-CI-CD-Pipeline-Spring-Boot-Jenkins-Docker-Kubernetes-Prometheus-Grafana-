@@ -12,7 +12,7 @@ data:
       - job_name: 'country-service'
         metrics_path: '/actuator/prometheus'
         static_configs:
-          - targets: ['my-country-service.default.svc.cluster.local:8087']
+          - targets: ['my-country-service.jenkins.svc.cluster.local:8087']
     # variante plus courte qui marche aussi :
     # - targets: ['my-country-service.default:8087']
 
@@ -62,4 +62,5 @@ spec:
     - port: 9090
       targetPort: 9090
       nodePort: 30090
+
 
