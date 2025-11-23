@@ -1,0 +1,23 @@
+---
+- name: Deploy Prometheus & Grafana
+  hosts: localhost
+  connection: local
+
+  tasks:
+    - name: Create monitoring namespace
+      kubernetes.core.k8s:
+        state: present
+        src: monitoring/namespace-monitoring.yaml
+        kubeconfig: config
+
+    - name: Deploy Prometheus
+      kubernetes.core.k8s:
+        state: present
+        src: monitoring/prometheus.yaml
+        kubeconfig: config
+
+    - name: Deploy Grafana
+      kubernetes.core.k8s:
+        state: present
+        src: monitoring/grafana.yaml
+        kubeconfig: config
