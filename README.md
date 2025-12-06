@@ -1,4 +1,3 @@
-````markdown
 # Country Service CI/CD Pipeline
 
 End-to-end CI/CD demo that builds, tests, analyzes and deploys a Spring Boot **country-service** REST API to **Kubernetes** using **Jenkins**, **Maven**, **Ansible** and **Docker**, with **SonarQube** for code quality and **Prometheus / Grafana** for monitoring.
@@ -179,8 +178,6 @@ The `Jenkinsfile` defines a declarative pipeline with the following stages:
    * Always clean the Jenkins workspace.
    * Log success or failure messages.
 
-> 🔐 **Important:** Set all sensitive values (SONAR tokens, Docker credentials, etc.) as **Jenkins credentials or Ansible extra-vars**. Do not commit real secrets inside playbooks or configs.
-
 ---
 
 ## 6. Running locally
@@ -269,3 +266,4 @@ ansible-playbook -i localhost, monitoring/monitoring-playbook.yml
 ```
 ```
 ```
+
