@@ -1,559 +1,271 @@
-<<<<<<< HEAD
-# Country Service - CI/CD Pipeline with Jenkins
-=======
-# Country Service - CI/CD Pipeline with Jenkins
+````markdown
+# Country Service CI/CD Pipeline
 
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)]()
-[![Java](https://img.shields.io/badge/Java-21-blue)]()
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.6-green)]()
-[![Maven](https://img.shields.io/badge/Maven-3.9.9-orange)]()
+End-to-end CI/CD demo that builds, tests, analyzes and deploys a Spring Boot **country-service** REST API to **Kubernetes** using **Jenkins**, **Maven**, **Ansible** and **Docker**, with **SonarQube** for code quality and **Prometheus / Grafana** for monitoring.
+
+> This project is meant as a learning / demo setup for a full modern pipeline.
 
 ---
 
-## Project Overview
+## 1. High-level architecture
 
-**Country Service** is a RESTful web service built with Spring Boot that provides CRUD operations for managing country data. The project demonstrates a complete CI/CD pipeline implementation using Jenkins, including automated testing, code quality analysis, artifact management, and automated deployment.
+![Pipeline overview](docs/images/image.png)
 
----
-
-## Technologies Used
-
-**Backend:** Java 21, Spring Boot 3.5.6, Spring Data JPA, Spring Data REST, H2/MySQL, Lombok  
-**Testing:** JUnit 5, Mockito, Spring Boot Test, MockMvc  
-**CI/CD:** Jenkins, Maven, SonarQube, Nexus, Ansible, Docker, Tomcat, ngrok
-
----
-
-## Architecture
-
-![CI/CD Pipeline Architecture](docs/images/image.png)
+1. **Developer** pushes code to **GitHub**.
+2. **Jenkins** pulls the code and runs a **declarative pipeline** (`Jenkinsfile`):
+   - Build & test with **Maven + JUnit**.
+   - Static analysis with **SonarQube**.
+   - Deploy using **Ansible**.
+3. **Ansible**:
+   - Builds and pushes a **Docker** image.
+   - Applies **Kubernetes** manifests (`deployment.yaml`, `service.yaml`).
+4. A second Ansible playbook deploys:
+   - **Prometheus** scraping `/actuator/prometheus` from the service.
+   - **Grafana** dashboards backed by Prometheus.
 
 ---
 
-## Prerequisites
+## 2. Tech stack
 
-- Ubuntu/Debian-based Linux (WSL2 for Windows)
-- Java 21, Maven 3.9+, Docker, Git
+**Application**
 
----
+- Java 21, Spring Boot 3
+- Spring Data JPA, Spring Data REST
+- H2 in-memory DB (default) + optional MySQL connector
+- Spring Boot Actuator + Micrometer Prometheus registry
+- Lombok
 
-## Installation & Setup
+**Build / Test / Quality**
 
-### 1. Jenkins Installation
+- Maven
+- JUnit 5, Spring Boot Test, Mockito / MockMvc tests
+- SonarQube (via Jenkins stage)
 
-#### Step 1.1: Install Java 21
+**CI/CD & Ops**
 
-```bash
-# Update system packages
-sudo apt update && sudo apt upgrade -y
-
-# Install Java 21
-sudo apt install -y openjdk-21-jdk
-```
-
-#### Step 1.2: Set JAVA_HOME
-
-```bash
-# Set JAVA_HOME environment variable
-export JAVA_HOME="/usr/lib/jvm/java-21-openjdk-amd64/"
-export PATH="$JAVA_HOME/bin:$PATH"
-
-# Make it permanent (add to ~/.bashrc or ~/.profile)
-echo 'export JAVA_HOME="/usr/lib/jvm/java-21-openjdk-amd64/"' >> ~/.bashrc
-echo 'export PATH="$JAVA_HOME/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-```
-
-#### Step 1.3: Install Maven
-
-```bash
-# Install Maven
-sudo apt install -y maven
-
-# Set M2_HOME
-export M2_HOME="/usr/share/maven"
-export PATH="$M2_HOME/bin:$PATH"
-
-# Make it permanent
-echo 'export M2_HOME="/usr/share/maven"' >> ~/.bashrc
-echo 'export PATH="$M2_HOME/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-```
-
-#### Step 1.4: Install Jenkins
-
-```bash
-# Add Jenkins repository key
-sudo wget -O /usr/share/keyrings/jenkins-keyring.asc \
-  https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
-
-# Add Jenkins repository
-echo "deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc]" \
-  https://pkg.jenkins.io/debian-stable binary/ | sudo tee \
-  /etc/apt/sources.list.d/jenkins.list > /dev/null
-
-# Update package list
-sudo apt update
-
-# Install Jenkins
-sudo apt install -y jenkins
-
-# Start Jenkins service
-sudo systemctl enable jenkins
-sudo systemctl start jenkins
-```
-
-Access Jenkins at: `http://localhost:8080` (Get initial password: `sudo cat /var/lib/jenkins/secrets/initialAdminPassword`)
+- Jenkins declarative pipeline (`Jenkinsfile`)
+- Docker & Docker Hub
+- Kubernetes (deployment & service manifests)
+- Ansible (`playbookCICD.yml`, `deploy/deploy-tomcat.yml`)
+- Prometheus & Grafana (`monitoring/*.yaml`, `monitoring-playbook.yml`)
 
 ---
 
-### 2. Docker Setup
+## 3. Project structure
 
-#### Step 2.1: Install Docker
-
-```bash
-# Install Docker
-sudo apt update
-sudo apt install -y docker.io
-
-# Start Docker service
-sudo systemctl enable docker
-sudo systemctl start docker
-
-# Add current user to docker group
-sudo usermod -aG docker $USER
-sudo usermod -aG docker jenkins
-
-# Reload group membership (or logout/login)
-newgrp docker
-```
-
----
-
-### 3. SonarQube Configuration
-
-#### Step 3.1: Install PostgreSQL (Optional - SonarQube can use embedded DB)
-
-```bash
-# Install PostgreSQL
-sudo apt update
-sudo apt install -y postgresql postgresql-contrib
-
-# Start PostgreSQL
-sudo systemctl enable postgresql
-sudo systemctl start postgresql
-```
-
-#### Step 3.2: Run SonarQube with Docker
-
-```bash
-# Pull and run SonarQube container
-docker run -d \
-  --name sonarqube \
-  -p 9000:9000 \
-  -e SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true \
-  sonarqube:latest
-```
-
-#### Step 3.3: Access SonarQube
-
-- URL: `http://localhost:9000`
-- Default credentials:
-  - **Username**: `admin`
-  - **Password**: `admin` (you'll be prompted to change it)
-
-#### Step 3.4: Generate SonarQube Token
-
-1. Login to SonarQube
-2. Go to: **My Account → Security → Generate Tokens**
-3. Name: `jenkins-token`
-4. Click **Generate**
-5. **Copy and save the token** (you'll need it for Jenkins)
+```text
+Pipeline-CI-main/
+├── deploy/
+│   └── deploy-tomcat.yml          # Optional: deploy WAR into a Tomcat container
+├── docs/
+│   └── images/
+│       ├── image.png              # CI/CD architecture diagram
+│       └── jenkins.png            # Jenkins UI screenshot (optional)
+├── monitoring/
+│   ├── config                     # kubeconfig for the monitoring playbook
+│   ├── grafana.yaml               # Grafana deployment + service (NodePort 30300)
+│   ├── monitoring-playbook.yml    # Deploy Prometheus + Grafana via Ansible
+│   ├── namespace-monitoring.yaml  # "monitoring" namespace
+│   └── prometheus.yaml            # Prometheus deployment + service (NodePort 30090)
+├── src/
+│   ├── main/
+│   │   ├── java/
+│   │   │   ├── application/       # Simple Calcul.java example
+│   │   │   └── com/country/service/demo/
+│   │   │       ├── CountryServiceApplication.java
+│   │   │       ├── beans/Country.java
+│   │   │       ├── controllers/CountryController.java
+│   │   │       ├── repositories/CountryRepository.java
+│   │   │       └── services/CountryService.java
+│   │   └── resources/application.properties
+│   └── test/
+│       ├── java/com/country/service/demo/... (unit + integration tests)
+│       └── resources/application-test.properties
+├── config                         # kubeconfig used by the Ansible playbooks
+├── deployment.yaml                # Kubernetes deployment for country-service
+├── service.yaml                   # Kubernetes NodePort service (30007)
+├── docker-compose.yml             # Run multiple instances locally with Docker Compose
+├── Dockerfile                     # Build a minimal WAR image
+├── Jenkinsfile                    # Jenkins declarative pipeline
+├── playbookCICD.yml               # Build/push Docker image + deploy to K8s
+├── pom.xml                        # Maven build configuration
+└── mvnw, mvnw.cmd                 # Maven wrapper scripts
+````
 
 ---
 
-### 4. Nexus Repository Setup
+## 4. The Country Service API
 
-#### Step 4.1: Run Nexus with Docker
+The core application is a simple REST API that manages countries.
 
-```bash
-# Create volume for Nexus data persistence
-docker volume create --name nexus-data
+### Entity
 
-# Run Nexus container
-docker run -d \
-  --name nexus \
-  -p 8081:8081 \
-  -v nexus-data:/nexus-data \
-  sonatype/nexus3:latest
+```java
+class Country {
+    int    idCountry;
+    String name;
+    String capital;
+}
 ```
 
-Access Nexus at: `http://localhost:8081` (Get initial password: `docker exec nexus cat /nexus-data/admin.password`)
+### Default configuration
 
-#### Step 4.2: Access Nexus
+* Port: `8087`
+* DB: in-memory **H2** database
+* Actuator Prometheus endpoint: `/actuator/prometheus`
 
-- URL: `http://localhost:8081`
-- Username: `admin`
-- Password: Use the password from the command above
-- Follow the setup wizard and create a new password
+### REST endpoints
 
-#### Step 4.3: Create Maven Hosted Repository
+| Method | Path                                 | Description           |
+| ------ | ------------------------------------ | --------------------- |
+| GET    | `/getcountries`                      | Get all countries     |
+| GET    | `/getcountries/{id}`                 | Get a country by ID   |
+| GET    | `/getcountries/countryname?name=XXX` | Get a country by name |
+| POST   | `/addcountry`                        | Create a country      |
+| PUT    | `/updatecountry/{id}`                | Update a country      |
+| DELETE | `/deletecountry/{id}`                | Delete a country      |
 
-1. Login to Nexus
-2. Go to: **Settings (⚙️) → Repositories → Create repository**
-3. Select: **maven2 (hosted)**
-4. Name: `maven-1`
-5. Version policy: `Mixed`
-6. Deployment policy: `Allow redeploy`
-7. Click **Create repository**
+**Example payload**
 
-#### Step 4.4: Create Nexus Credentials
-
-1. Go to: **Settings → Security → Users → Create local user**
-2. Username: `jenkins`
-3. Password: `jenkins123` (or your choice)
-4. Roles: `nx-admin`
-5. Save
-
----
-
-### 5. Ansible Configuration
-
-#### Step 5.1: Install Ansible
-
-```bash
-# Install Ansible
-sudo apt update
-sudo apt install -y ansible
-```
-
-#### Step 5.2: Setup SSH for Ansible
-
-```bash
-# Generate SSH key for Ansible/Jenkins
-ssh-keygen -t rsa -b 4096 -C "jenkins-ansible" -f ~/.ssh/ansible_id_rsa -N ""
-
-# Copy public key to authorized_keys (for local deployment)
-cat ~/.ssh/ansible_id_rsa.pub >> ~/.ssh/authorized_keys
-chmod 600 ~/.ssh/authorized_keys
-```
-
-#### Step 5.3: Install and Start SSH Server (if not installed)
-
-```bash
-# Install OpenSSH server
-sudo apt update
-sudo apt install -y openssh-server
-
-# Enable and start SSH service
-sudo systemctl enable ssh
-sudo systemctl start ssh
-```
-
-#### Step 5.4: Create Ansible Playbook
-
-Create a deployment playbook at `deploy/deploy-tomcat.yml` that finds the WAR file in the target directory, copies it to the Tomcat container, and restarts the container.
-
----
-
-### 6. Jenkins Configuration
-
-#### Step 6.1: Install Required Jenkins Plugins
-
-1. Go to: **Manage Jenkins → Plugins → Available plugins**
-2. Install the following plugins:
-   - **SonarQube Scanner**
-   - **Nexus Artifact Uploader**
-   - **Pipeline**
-   - **Git**
-   - **Maven Integration**
-   - **Ansible**
-   - **JUnit**
-   - **Docker Pipeline** (optional)
-
-#### Step 6.2: Configure Global Tools
-
-Go to: **Manage Jenkins → Tools**
-
-##### Configure JDK:
-- Name: `JDK21`
-- JAVA_HOME: `/usr/lib/jvm/java-21-openjdk-amd64/`
-
-##### Configure Maven:
-- Name: `M2_HOME`
-- MAVEN_HOME: `/usr/share/maven`
-
-##### Configure SonarQube Scanner:
-- Name: `SonarQubeScanner`
-- Install automatically (latest version)
-
-##### Configure Ansible:
-- Name: `Ansible`
-- Path: `/usr/bin/ansible-playbook`
-
-#### Step 6.3: Configure SonarQube Server
-
-1. Go to: **Manage Jenkins → System**
-2. Find: **SonarQube servers**
-3. Click **Add SonarQube**
-4. Configuration:
-   - Name: `MySonarQubeServer`
-   - Server URL: `http://localhost:9000`
-   - Server authentication token: Click **Add** → **Jenkins**
-     - Kind: **Secret text**
-     - Secret: (paste your SonarQube token)
-     - ID: `sonarqube-token`
-     - Description: `SonarQube Token`
-5. Save
-
-#### Step 6.4: Add Nexus Credentials
-
-1. Go to: **Manage Jenkins → Credentials → System → Global credentials**
-2. Click **Add Credentials**
-3. Configuration:
-   - Kind: **Username with password**
-   - Username: `jenkins`
-   - Password: `jenkins123` (or your Nexus password)
-   - ID: `NEXUS_CRED`
-   - Description: `Nexus Repository Credentials`
-4. Save
-
-#### Step 6.5: Add Ansible SSH Credentials
-
-1. Go to: **Manage Jenkins → Credentials → System → Global credentials**
-2. Click **Add Credentials**
-3. Configuration:
-   - Kind: **SSH Username with private key**
-   - ID: `ansible-ssh-key`
-   - Description: `Ansible SSH Private Key`
-   - Username: `jenkins`
-   - Private Key: Click **Enter directly**
-     ```bash
-     # Copy your private key
-     cat ~/.ssh/ansible_id_rsa
-     ```
-   - Paste the entire private key content
-4. Save
-
-#### Step 6.6: Run Tomcat Container
-
-```bash
-# Run Tomcat container for deployment
-docker run -d \
-  --name tomcat \
-  -p 8082:8080 \
-  tomcat:10.1-jdk21
+```json
+{
+  "idCountry": 1,
+  "name": "France",
+  "capital": "Paris"
+}
 ```
 
 ---
 
-### 7. GitHub Webhook Setup
+## 5. CI/CD Pipeline (Jenkinsfile)
 
-#### Step 7.1: Install ngrok
+The `Jenkinsfile` defines a declarative pipeline with the following stages:
 
-```bash
-# Download ngrok
-wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz
+1. **Checkout code**
+   Pulls the `main` branch from the GitHub repository.
 
-# Extract
-tar xvzf ngrok-v3-stable-linux-amd64.tgz
+2. **Build & Tests (Maven)**
 
-# Move to PATH
-sudo mv ngrok /usr/local/bin/
-```
-
-#### Step 7.2: Setup ngrok Account
-
-1. Go to: https://dashboard.ngrok.com/signup
-2. Sign up for a free account
-3. Get your authtoken from: https://dashboard.ngrok.com/get-started/your-authtoken
-4. Configure ngrok:
    ```bash
-   ngrok config add-authtoken YOUR_AUTHTOKEN_HERE
+   mvn clean verify
    ```
 
-#### Step 7.3: Start ngrok Tunnel
+   Runs all unit and integration tests.
 
-```bash
-# Start ngrok tunnel to Jenkins (port 8080)
-ngrok http 8080
-```
+3. **SonarQube Analysis**
+   Uses `withSonarQubeEnv('MySonar')` and a `SONAR_TOKEN` Jenkins credential to run:
 
-**Copy the Forwarding URL** (e.g., `https://abc123.ngrok.io`)
+   ```bash
+   mvn sonar:sonar \
+     -Dsonar.projectKey=country-service \
+     -Dsonar.projectName=country-service \
+     -Dsonar.host.url=${SONAR_HOST_URL} \
+     -Dsonar.login=${SONAR_TOKEN}
+   ```
 
-#### Step 7.4: Configure GitHub Webhook
+4. **Deploy using Ansible playbook**
+   Executes `playbookCICD.yml` to:
 
-1. Go to your GitHub repository: `https://github.com/riadhbelgacem/TP-CI-CD`
-2. Go to: **Settings → Webhooks → Add webhook**
-3. Configuration:
-   - **Payload URL**: `https://abc123.ngrok.io/github-webhook/`
-   - **Content type**: `application/json`
-   - **Which events**: Select **Just the push event**
-   - **Active**: ✅ Checked
-4. Click **Add webhook**
+   * Log in to Docker registry.
+   * Build the Docker image from the `Dockerfile`.
+   * Push the image.
+   * Apply `deployment.yaml` and `service.yaml` to the Kubernetes cluster (namespace `jenkins`).
 
----
+5. **Deploy Monitoring (Prometheus & Grafana)**
+   Runs `monitoring/monitoring-playbook.yml` to deploy Prometheus and Grafana in the `monitoring` namespace.
 
-### 8. Create Jenkins Pipeline
+6. **Post actions**
 
-#### Step 8.1: Create New Pipeline Job
+   * Always clean the Jenkins workspace.
+   * Log success or failure messages.
 
-1. Go to Jenkins Dashboard
-2. Click **New Item**
-3. Name: `Country-Service-CI-CD`
-4. Type: **Pipeline**
-5. Click **OK**
-
-#### Step 8.2: Configure Pipeline
-
-1. **General Section**:
-   - ✅ Check **GitHub project**
-   - Project url: `https://github.com/riadhbelgacem/TP-CI-CD`
-
-2. **Build Triggers**:
-   - ✅ Check **GitHub hook trigger for GITScm polling**
-
-3. **Pipeline Section**:
-   - Definition: **Pipeline script from SCM**
-   - SCM: **Git**
-   - Repository URL: `https://github.com/riadhbelgacem/TP-CI-CD.git`
-   - Branch: `*/main`
-   - Script Path: `Jenkinsfile`
-
-4. Click **Save**
-
-#### Step 8.3: Create Jenkinsfile
-
-Create a `Jenkinsfile` in your project root with stages for Checkout, Compile, Test, Package, SonarQube Analysis, Nexus Upload, and Deployment to Tomcat.
+> 🔐 **Important:** Set all sensitive values (SONAR tokens, Docker credentials, etc.) as **Jenkins credentials or Ansible extra-vars**. Do not commit real secrets inside playbooks or configs.
 
 ---
 
-## Running the Application
+## 6. Running locally
 
-### Local Development
+### 6.1 Prerequisites
+
+* Java 21
+* Maven (or use the Maven wrapper `./mvnw`)
+* Docker (for Docker image / compose usage)
+
+### 6.2 Run with Maven (H2 database)
 
 ```bash
-# Clone the repository
-git clone https://github.com/riadhbelgacem/TP-CI-CD.git
-cd TP-CI-CD
+# from project root
+./mvnw clean package
 
-# Build the project
-mvn clean install
-
-# Run the application
-mvn spring-boot:run
+# Run the generated WAR
+java -jar target/country.service-0.0.1-SNAPSHOT.war
 ```
 
-Access the application at: `http://localhost:8082`
+The API will be available at `http://localhost:8087`.
+
+### 6.3 Run with Docker
+
+Build and run a single container:
+
+```bash
+./mvnw clean package
+docker build -t my-country-service .
+docker run -p 8087:8087 my-country-service
+```
+
+Or use the provided `docker-compose.yml` to run multiple instances:
+
+```bash
+docker-compose up --build
+```
+
+* `country-service1` → `http://localhost:8087`
+* `country-service2` → `http://localhost:8088`
 
 ---
 
-## CI/CD Pipeline
+## 7. Deploying to Kubernetes with Ansible
 
-### Pipeline Stages
+### 7.1 Prerequisites
 
-![Jenkins Pipeline](docs/images/jenkins.png)
+* A Kubernetes cluster (e.g. Docker Desktop, Kind, Minikube…)
+* `kubectl` configured and working
+* Ansible with `community.general` and `kubernetes.core` collections
+* `config` file in the repo pointing to your cluster (kubeconfig)
 
-1. **Checkout** - Pull latest code from GitHub
-2. **Compile** - Compile Java source code
-3. **Test** - Run unit and integration tests
-4. **Package** - Build JAR/WAR artifact
-5. **SonarQube Analysis** - Analyze code quality
-6. **Nexus Upload** - Publish artifact to Nexus
-7. **Deploy to Tomcat** - Deploy using Ansible
+### 7.2 Customize the playbook
 
-### Trigger Pipeline
+In `playbookCICD.yml`, change:
 
-The pipeline is automatically triggered when you push to the `main` branch:
+* `image_name` / `image_tag`
+* Docker registry username / password
+  (Ideally pass them as Ansible `--extra-vars` or via Jenkins credentials.)
+
+### 7.3 Run the playbook manually (optional)
 
 ```bash
-git add .
-git commit -m "Your commit message"
-git push origin main
+ansible-playbook -i localhost, playbookCICD.yml
 ```
 
----
+This will:
 
-## API Endpoints
+1. Build and push the Docker image.
+2. Apply `deployment.yaml` (3 replicas) and `service.yaml` (NodePort `30007`).
 
-### Base URL
-```
-http://localhost:8082
-```
+Access the service at:
 
-### Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/getcountries` | Get all countries |
-| GET | `/getcountries/{id}` | Get country by ID |
-| GET | `/getcountries/countryname?name={name}` | Get country by name |
-| POST | `/addcountry` | Add new country |
-| PUT | `/updatecountry/{id}` | Update country |
-| DELETE | `/deletecountry/{id}` | Delete country |
-
-### Example Requests
-
-#### Get All Countries
-```bash
-curl -X GET http://localhost:8082/getcountries
-```
-
-#### Add New Country
-```bash
-curl -X POST http://localhost:8082/addcountry \
-  -H "Content-Type: application/json" \
-  -d '{
-    "idCountry": 1,
-    "name": "France",
-    "capital": "Paris"
-  }'
-```
-
-#### Update Country
-```bash
-curl -X PUT http://localhost:8082/updatecountry/1 \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "France",
-    "capital": "Paris"
-  }'
-```
-
-#### Delete Country
-```bash
-curl -X DELETE http://localhost:8082/deletecountry/1
+```text
+http://<node-ip>:30007
 ```
 
 ---
 
-## Testing
+## 8. Monitoring with Prometheus & Grafana
+
+The monitoring stack is defined under `monitoring/`.
 
 ```bash
-mvn test
+ansible-playbook -i localhost, monitoring/monitoring-playbook.yml
 ```
-
-### Test Coverage
-
-- **Unit Tests**: Testing individual components
-- **Integration Tests**: Testing API endpoints
-- **Repository Tests**: Testing data access layer
-- **Controller Tests**: Testing with Mockito and MockMvc
-
-### Test Results
-
-Test results are generated in:
-- `target/surefire-reports/` - JUnit XML reports
-- Available in Jenkins after each build
-
----
-
-## Monitoring & Quality
-
-- **SonarQube**: `http://localhost:9000` - Code coverage, bugs, vulnerabilities
-- **Nexus**: `http://localhost:8081` - Artifact management
-- **Jenkins**: `http://localhost:8080` - Build history, test results
-
-
----
->>>>>>> 10e5098 (up)
+```
+```
